@@ -1,2 +1,2 @@
-# Respipe
+# respipe
 Respiratory pathogen pipeline
