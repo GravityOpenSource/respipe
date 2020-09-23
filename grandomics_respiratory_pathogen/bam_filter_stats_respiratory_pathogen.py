@@ -2,6 +2,7 @@
 # Author: Zhang Siwen, zhangsiwen@grandomics.com
 # History:
 #     20200826, first version
+#     20200921, change standard for positive decision
 
 import subprocess
 import argparse
@@ -17,7 +18,7 @@ def GetArgs():
     require_args.add_argument('--out', dest='out', help='output prefix', required=True) 
     optional_args = parser.add_argument_group('optional arguments')
     optional_args.add_argument('--depth', dest='depth', default=100, help="depth threshold, default 100", type=int)
-    optional_args.add_argument('--cov', dest='cov', default=0.5, help="overlap ratio, default 0.5", type=float)
+    optional_args.add_argument('--cov', dest='cov', default=0.5, help="read-target overlap ratio, default 0.5", type=float)
     optional_args.add_argument('--mapq', dest='mapq', default=50, help="minimum mapping quality of reads to be kept,default 50", type=int)    
     args = parser.parse_args()
     return args
@@ -170,10 +171,14 @@ def WriteOutSummary(outfile, result, total_reads, depth):
             # e.g. Lee-seg4(NC_002207.1,0,0%,0.0%);Lee-seg6(NC_002209.1,0,0%,0.0%);Lee-seg7(NC_002210.1,0,0%,0.0%)
             info[species].append(result[species]['type'][i]+"("+result[species]['ref'][i]+","+str(result[species]['reads'][i])+","+str(result[species]['reads_ratio'][i])+"%,"+str(result[species]['cov_ratio'][i])+"%)")
         # positive decision, reads_ratio > 10 and cov_depth > 90
-        if result[species]['total_ratio'] >= 10 and result[species]['total_cov'] >= 90:
-            decide = "yes"
+        if result[species] == "Unclassified": # modified 20200921
+            decide = "No"
+        elif result[species]['total_ratio'] >= 10 and result[species]['total_cov'] >= 90:
+            decide = "Yes"
+        elif result[species]['total_ratio'] <= 1 and result[species]['total_cov'] <= 80: # modified 20200921
+            decide = "No"
         else:
-            decide = "no"
+            decide = "Suspected" # modified 20200921
         # write out species stats
         out.write(species+"\t"+str(result[species]['total_reads'])+"\t"+str(result[species]['total_ratio'])+"%\t"+str(result[species]['total_cov'])+"%\t"+decide+"\t")
         # subspecies info

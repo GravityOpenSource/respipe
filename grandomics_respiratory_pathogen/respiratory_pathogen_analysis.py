@@ -3,6 +3,7 @@
 # History:
 #     20200827, first version
 #     20200903, add barcode-sample relation file 
+#     20200921, change Demultiplex(), let user choose if the data need demultiplexing
 
 
 import os
@@ -31,13 +32,6 @@ def GetArgs():
     return args
 
 
-# check status and stdout of process
-'''def CheckProcess(pid):
-    while pid.poll() == None: #检查子进程是否已被终止。设置并返回 returncode 属性。否则返回 None。
-        out = pid.stdout.readline().strip()
-        if out:
-            print("subprocess output: ", out)
-'''
 
 # sub-process control
 def RunSubprocess(c):
@@ -50,7 +44,10 @@ def RunSubprocess(c):
 
 # multi-process control
 def RunMultiprocess(commands, process_num, threads):
+    # calculate a reasonable parallel job number
     process_num = min(int(os.cpu_count()/int(threads)), int(process_num))
+    
+    # create nultiprocess pool
     multiprocess_pool = multiprocessing.Pool(processes=process_num)
     for c in commands:
         multiprocess_pool.apply_async(RunSubprocess, args=(c,)) 
@@ -60,8 +57,25 @@ def RunMultiprocess(commands, process_num, threads):
     print('All subprocesses done.')
 
 
+# parse sample barcode relation file
+def SampleBarcodeMap(relation): # added 20200921
+    # record barcode-sample name relation 
+    samplemap = {}
+    relationfile = open(relation)
+    for line in relationfile:
+        ele = line.split(",")
+        #ele = line.split("\t")
+        try:
+            samplemap[ele[0].strip()] = ele[1].strip()
+        except:
+            continue
+    relationfile.close()
+
+    return samplemap
+
+
 # demultiplex
-def Demultiplex(cell, kit, threads):
+def Demultiplex(cell, kit, threads, process_num):
     # get system env
     basecalled_dir = os.getenv('BASECALLED_DIR')
     
@@ -76,61 +90,58 @@ def Demultiplex(cell, kit, threads):
     if not os.path.isdir(cell_dir): 
         raise Exception("Can not find fastq_pass/ directory in cell %s in $BASECALLED_DIR" % cell_dir)
     
-    # run guppy_barcoder to demultiplex
-    c = "/opt/conda/envs/galaxy/ont-guppy-cpu/bin/guppy_barcoder -i %s -s demultiplex --barcode_kits \"%s\" --trim_barcodes -t %s -q 0" % (cell_dir, kit, threads)
-    RunSubprocess(c)
-    #pid = subprocess.Popen(c, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    #pid = subprocess.Popen(c, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    #CheckProcess(pid)
+    # decide if demultiplex is needed # added 20200921
+    barcodes = {}
+    if kit != "none":
+        # run guppy_barcoder to demultiplex
+        c = "/opt/conda/envs/galaxy/ont-guppy-cpu/bin/guppy_barcoder -i %s -s demultiplex --barcode_kits \"%s\" --trim_barcodes -t %s -q 0" % (cell_dir, kit, threads)
+        RunSubprocess(c)
+        
+        # find output folder name of each barcode
+        dirs =["demultiplex/"+i for i in [d for d in os.listdir("demultiplex") if os.path.isdir('/'.join(["demultiplex",d]))]]
+        fastqs = ['/'.join([i,os.listdir(i)[0]]) for i in dirs]
+        
+        # record barcode and file relation
+        for f in fastqs:
+            bc = f.split("/")[1]
+            barcodes[bc] = f
+        
+    else: # added 20200921
+        # demultiplexing already done
+        os.system("mkdir demultiplex")
+        commands = ["cat "+cell_dir+"/"+bc+"/*fastq > demultiplex/"+bc+".fastq" for bc in os.listdir(cell_dir)]
+        RunMultiprocess(commands, process_num, threads)
+        
+        # record barcode and file relation
+        for bc in os.listdir(cell_dir):
+            barcodes[bc] = "demultiplex/"+bc+".fastq"
+        
+    return barcodes
     
 
 # mapping
-def MappingAndSummary(ref, threads, process_num, tool, bed, relation, depth, cov, mapq):
+def MappingAndSummary(barcodes, ref, threads, process_num, tool, bed, relation, depth, cov, mapq):
     # record barcode-sample name relation 
-    samplemap = {}
-    relationfile = open(relation)
-    for line in relationfile:
-        #ele = line.split(",")
-        ele = line.split("\t")
-        try:
-            samplemap[ele[0].strip()] = ele[1].strip()
-        except:
-            continue
-    relationfile.close()
+    samplemap = SampleBarcodeMap(relation)
     
-    # find output folder name of each barcode
-    dirs =["demultiplex/"+i for i in [d for d in os.listdir("demultiplex") if os.path.isdir('/'.join(["demultiplex",d]))]]
-    fastqs = ['/'.join([i,os.listdir(i)[0]]) for i in dirs]
-    barcodes = {}
-    
-    # record barcode and file relation
-    for f in fastqs:
-        bc = f.split("/")[1]
-        barcodes[bc] = f
+    # give warning if barcode in relation file but fastq file not found # added 20200921
+    for bc in samplemap:
+        if bc not in barcodes.keys():
+            print("Warning: " + bc + " for " + samplemap[bc] + " not found. Continue...")
+        else:
+            print("Continue: " + bc + " for " + samplemap[bc] + " found. Continue...")
     
     # call minimap2
     #os.system("mkdir output")
-    commands = ["minimap2 --MD -L -Y -t %s --secondary=no -ax map-ont %s %s|samtools view -b - |samtools sort -m 4G -o %s.bam - && samtools index %s.bam && python3 %s --bam %s.bam --bed %s --out %s.filter --depth %s --cov %s --mapq %s" % (threads, ref, fq, samplemap[bc], samplemap[bc], tool, samplemap[bc], bed, samplemap[bc], depth, cov, mapq) for bc,fq in barcodes.items() if bc in samplemap]
+    commands = ["minimap2 --MD -L -Y -t %s --secondary=no -ax map-ont %s %s|samtools view -b - |samtools sort -m 4G -o %s.bam - && samtools index %s.bam && python3 %s --bam %s.bam --bed %s --out %s.filter --depth %s --cov %s --mapq %s" % (threads, ref, fq, samplemap[bc], samplemap[bc], tool, samplemap[bc], bed, samplemap[bc], depth, cov, mapq) for bc,fq in barcodes.items() if bc in samplemap.keys()]
     
     RunMultiprocess(commands, process_num, threads)
-    
-    # record all pid of subprocess
-    #pids = []
-    #for c in commands:
-    #    pids.append(subprocess.Popen(c, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.STDOUT))
-        #pids.append(subprocess.Popen(c, stdout=subprocess.PIPE, stderr=subprocess.STDOUT))
-    
-    # wait for all subprocess finish
-    #for pid in pids:
-    #    CheckProcess(pid)
-    #for bc in samplemap:
-    #    subprocess.Popen('rm %s.bam %s.bam.bai' % (samplemap[bc], samplemap[bc]))    
     
     
 def main():
     args = GetArgs()
-    Demultiplex(args.cell, args.kit, args.threads)
-    MappingAndSummary(args.ref, args.threads, args.process_num, args.tool, args.bed, args.relation, args.depth, args.cov, args.mapq)
+    barcodes = Demultiplex(args.cell, args.kit, args.threads, args.process_num)
+    MappingAndSummary(barcodes, args.ref, args.threads, args.process_num, args.tool, args.bed, args.relation, args.depth, args.cov, args.mapq)
     print("Analysis finished.")
     
 

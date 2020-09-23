@@ -2,7 +2,13 @@
 <tool id="respiratory_pathogen_infection" name="呼吸道病原分析" version="0.1.0" hidden="false">
     <command detect_errors="exit_code"><![CDATA[
         
-        python3 $__tool_directory__/respiratory_pathogen_analysis.py --cell $cell --kit "${" ".join(map(str, $kit))}" --ref $ref --tool $__tool_directory__/bam_filter_stats_respiratory_pathogen.py --relation $barcode_list --bed $bed --threads $parameters.threads --process $parameters.process --depth $parameters.depth --cov $parameters.cov --mapq $parameters.mapq > $script 2>&1 
+        python3 $__tool_directory__/respiratory_pathogen_analysis.py --cell $cell --ref $ref --tool $__tool_directory__/bam_filter_stats_respiratory_pathogen.py --relation $barcode_list --bed $bed --threads $parameters.threads --process $parameters.process --depth $parameters.depth --cov $parameters.cov --mapq $parameters.mapq 
+        #if $ifdemultiplexed.demultiplex == "yes":
+            --kit "${" ".join(map(str, $ifdemultiplexed.kit))}" 
+        #elif $ifdemultiplexed.demultiplex == "no":
+            --kit "none" 
+        #end if
+        > $script 2>&1 
                 
         ]]>
     </command>
@@ -20,33 +26,41 @@
                 <column name="value" index="3" />
             </options>
         </param>
-        <param name="kit" type="select" display="checkboxes" multiple="true" label="Barcode试剂盒" help="ONT官方barcoding测序试剂盒，可多选">
-            <option value="EXP-NBD103">EXP-NBD103</option>
-            <option value="EXP-NBD104">EXP-NBD104</option>
-            <option value="EXP-NBD114">EXP-NBD114</option>
-            <option value="EXP-NBD196">EXP-NBD196</option>
-            <option value="EXP-PBC001">EXP-PBC001</option>
-            <option value="EXP-PBC096" selected="true">EXP-PBC096</option>
-            <!--<option value="OND-SQK-LP0096M">OND-SQK-LP0096M</option>
-            <option value="OND-SQK-LP0096S">OND-SQK-LP0096S</option>
-            <option value="OND-SQK-LP1152S">OND-SQK-LP1152S</option>
-            <option value="OND-SQK-LP9216">OND-SQK-LP9216</option>
-            <option value="SQK-16S024">SQK-16S024</option>
-            <option value="SQK-LWB001">SQK-LWB001</option>
-            <option value="SQK-PBK004">SQK-PBK004</option>
-            <option value="SQK-PCB109">SQK-PCB109</option>
-            <option value="SQK-RAB201">SQK-RAB201</option>
-            <option value="SQK-RAB204">SQK-RAB204</option>
-            <option value="SQK-RBK001">SQK-RBK001</option>
-            <option value="SQK-RBK004">SQK-RBK004</option>
-            <option value="SQK-RBK096">SQK-RBK096</option>
-            <option value="SQK-RLB001">SQK-RLB001</option>
-            <option value="SQK-RPB004">SQK-RPB004</option>
-            <option value="VSK-VMK001">VSK-VMK001</option>
-            <option value="VSK-VMK002">VSK-VMK002</option>-->
-        </param>
+        <conditional name="ifdemultiplexed">
+            <param name="demultiplex" type="select" display="radio" label="是否需要拆分">
+                <option value="no">不需要拆分，已经在测序时选择拆分</option>
+                <option value="yes">需要拆分，在测序时未选择拆分</option>
+            </param>
+            <when value="yes">
+                <param name="kit" type="select" display="checkboxes" multiple="true" label="Barcode试剂盒" help="ONT官方barcoding测序试剂盒，可多选">
+                    <option value="EXP-NBD103">EXP-NBD103</option>
+                    <option value="EXP-NBD104">EXP-NBD104</option>
+                    <option value="EXP-NBD114">EXP-NBD114</option>
+                    <option value="EXP-NBD196">EXP-NBD196</option>
+                    <option value="EXP-PBC001">EXP-PBC001</option>
+                    <option value="EXP-PBC096" selected="true">EXP-PBC096</option>
+                    <!--<option value="OND-SQK-LP0096M">OND-SQK-LP0096M</option>
+                    <option value="OND-SQK-LP0096S">OND-SQK-LP0096S</option>
+                    <option value="OND-SQK-LP1152S">OND-SQK-LP1152S</option>
+                    <option value="OND-SQK-LP9216">OND-SQK-LP9216</option>
+                    <option value="SQK-16S024">SQK-16S024</option>
+                    <option value="SQK-LWB001">SQK-LWB001</option>
+                    <option value="SQK-PBK004">SQK-PBK004</option>
+                    <option value="SQK-PCB109">SQK-PCB109</option>
+                    <option value="SQK-RAB201">SQK-RAB201</option>
+                    <option value="SQK-RAB204">SQK-RAB204</option>
+                    <option value="SQK-RBK001">SQK-RBK001</option>
+                    <option value="SQK-RBK004">SQK-RBK004</option>
+                    <option value="SQK-RBK096">SQK-RBK096</option>
+                    <option value="SQK-RLB001">SQK-RLB001</option>
+                    <option value="SQK-RPB004">SQK-RPB004</option>
+                    <option value="VSK-VMK001">VSK-VMK001</option>
+                    <option value="VSK-VMK002">VSK-VMK002</option>-->
+                </param>
+            </when>
+        </conditional>
         <!--<param name="samplename" type="data" format="csv" label="输入barcode与样本名称对应关系" help="用逗号分隔barcode与样本名称，回车分隔不同barcode，如barcode01,sample1"/>-->
-        <param name="barcode_list" type="data" format="tabular" label="输入barcode与样本名称对应关系" help="用制表符Tab或者逗号分隔barcode与样本名称，回车分隔不同barcode，如‘barcode01\tsample1’，‘barcode01,sample1’"/>
+        <param name="barcode_list" type="data" format="tabular" label="输入barcode与样本名称对应关系" help="用逗号分隔barcode与样本名称，回车分隔不同barcode，如‘barcode01,sample1’"/>
         <section name="parameters" expanded="false" title="调整其他默认参数">
             <param name="depth" type="text" label="深度阈值" value="100" help="每个物种的最低深度"/>
             <param name="cov" type="text" label="覆盖度阈值" value="0.5" help="每个物种扩增区间最低覆盖度"/>
@@ -56,7 +70,7 @@
         </section>
     </inputs>
     <outputs>
-        <!--<data name="script" format="txt" label="$cell报错结果" assign_primary_output="true"/>-->
+        <data name="script" format="txt" label="$cell运行信息" assign_primary_output="true"/>
         <collection name="bam_list" type="list" label="$cell比对BAM结果">
             <!--<discover_datasets pattern="(?P&lt;designation&gt;.+)\.filter\.bam" format="bam" assign_primary_output="true" />-->
             <discover_datasets pattern="(?P&lt;designation&gt;.+)\.filter\.bam$" ext="bam" />
