@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<tool id="antimicrobial_resistance" name="细菌耐药基因预测" version="0.1.0" hidden="false">
+    <command detect_errors="exit_code"><![CDATA[
+        
+        bash $__tool_directory__/amr_rgi_contig.sh $card_path $contig out heatmap
+        
+        ]]>
+    </command>
+    <inputs>
+        <!-- 输入细菌基因组 -->
+        <param name="contig" type="data" format="fasta" label="输入细菌基因组" help="仅支持输入基因组fasta文件，不支持组装、比对等操作"/>
+        <!-- 选择耐药数据库 -->
+        <param name="card_path" type="select" display="radio" label="选择数据库" >
+            <options from_data_table="amr_card">
+                <column name="name" index="1"/>
+                <column name="value" index="3"/>
+            </options>
+        </param>
+        <param name="prefix" type="text" label="输出结果名称" help="暂时只支持英文及字符输入"/>
+        <!--<param name="threads" type="text" label="线程数" value="4"/>-->
+    </inputs>
+    <outputs>
+       <data name="out" format="tsv" label="细菌耐药基因注释-$prefix" from_work_dir="out.txt" />
+        <data name="amr" format="tsv" label="细菌耐药基因分析结果-$prefix" from_work_dir="out.amr.tsv" />
+    </outputs>
+    <help><![CDATA[
+说明
+-----
+
+对给定细菌基因组预测耐药性并给出结果。
+
+输入细菌基因组：
+    仅支持输入基因组fasta文件，不支持组装、比对等操作
+
+选择数据库：
+    仅支持CARD耐药数据库
+
+输出结果名称：
+    结果上显示的名称
+
+线程数：
+    默认4个线程
+
+        ]]></help>
+</tool>
+
+
