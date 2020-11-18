@@ -45,7 +45,7 @@ def RunSubprocess(c):
 # multi-process control
 def RunMultiprocess(commands, process_num, threads):
     # calculate a reasonable parallel job number
-    process_num = min(int(os.cpu_count()/int(threads)), int(process_num))
+    process_num = min(int(os.cpu_count()/int(process_num)), int(threads))
     
     # create nultiprocess pool
     multiprocess_pool = multiprocessing.Pool(processes=process_num)
@@ -94,7 +94,7 @@ def Demultiplex(cell, kit, threads, process_num):
     barcodes = {}
     if kit != "none":
         # run guppy_barcoder to demultiplex
-        c = "/opt/conda/envs/galaxy/ont-guppy-cpu/bin/guppy_barcoder -i %s -s demultiplex --barcode_kits \"%s\" --trim_barcodes -t %s -q 0" % (cell_dir, kit, threads)
+        c = "/opt/conda/envs/galaxy/ont-guppy-cpu/bin/guppy_barcoder -i %s -s demultiplex --barcode_kits \"%s\" --trim_barcodes -t %s -q 0 -x auto --num_extra_bases_trim 0" % (cell_dir, kit, threads) # add '-x auto --num_extra_bases_trim 10' 20200923
         RunSubprocess(c)
         
         # find output folder name of each barcode

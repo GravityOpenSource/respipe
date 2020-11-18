@@ -8,7 +8,9 @@
         #elif $ifdemultiplexed.demultiplex == "no":
             --kit "none" 
         #end if
-        > $script 2>&1 
+        > $script 2>&1 &&
+        
+        grep "Yes\|No\|Suspected\|Warning" *tsv|cut -f1-5|sed 's/:/\t/g'|sed 's/\.filter\.summary\.tsv//g' > $all_summary
                 
         ]]>
     </command>
@@ -64,18 +66,19 @@
         <section name="parameters" expanded="false" title="调整其他默认参数">
             <param name="depth" type="text" label="深度阈值" value="100" help="每个物种的最低深度"/>
             <param name="cov" type="text" label="覆盖度阈值" value="0.5" help="每个物种扩增区间最低覆盖度"/>
-            <param name="mapq" type="text" label="比对质量" value="50" help="序列比对到参考基因组的最低质量"/>
+            <param name="mapq" type="text" label="比对质量" value="0" help="序列比对到参考基因组的最低质量"/>
             <param name="threads" type="text" label="单样本线程数" value="4" help="单样本数据分析使用的线程数"/>
-            <param name="process" type="text" label="并发进程数" value="4" help="默认取CPU线程总数/单样本线程数、设置的并发进程数之间的最小值"/>
+            <param name="process" type="text" label="并发进程数" value="4" help="默认取CPU线程总数/设置的并发进程数、单样本线程数之间的最小值"/>
         </section>
     </inputs>
     <outputs>
         <data name="script" format="txt" label="$cell运行信息" assign_primary_output="true"/>
-        <collection name="bam_list" type="list" label="$cell比对BAM结果">
+        <data name="all_summary" format="tsv" label="$cell全部样本阳性速览" />
+        <collection name="bam_list" type="list" label="$cell比对BAM">
             <!--<discover_datasets pattern="(?P&lt;designation&gt;.+)\.filter\.bam" format="bam" assign_primary_output="true" />-->
             <discover_datasets pattern="(?P&lt;designation&gt;.+)\.filter\.bam$" ext="bam" />
         </collection>
-        <collection name="summary_list" type="list" label="$cell样本报告结果">
+        <collection name="summary_list" type="list" label="$cell单样本报告">
             <discover_datasets pattern="(?P&lt;name&gt;.+)\.summary\.tsv" format="tsv" assign_primary_output="true" />
         </collection>
     </outputs>
@@ -93,6 +96,9 @@
 
 选择目标区域：
     根据试剂盒设计的位置给出的目标区间。
+
+是否需要拆分：
+    根据测序时是否选择拆分，决定此处是否需要拆分步骤。
 
 Barcode试剂盒:
     ONT官方barcoding测序试剂盒，可多选。

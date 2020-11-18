@@ -3,6 +3,7 @@
 # History:
 #     20200826, first version
 #     20200921, change standard for positive decision
+#     20201118, change positive/suspected/negative standard
 
 import subprocess
 import argparse
@@ -51,7 +52,7 @@ def ReadBedRelation(bed):
             # set model of result
             result[species] = {'total_reads':0, 'total_ratio':0, 'total_cov':0, 'ref':[], 'type':[], 'reads':[], 'reads_ratio':[], 'target':[], 'coverage':[], 'cov_ratio':[]}
             # also add unclassified read in result
-            result['Unclassified'] = {'total_reads':0, 'total_ratio':0, 'total_cov':0, 'ref':['Unclassified'], 'type':['Unclassified'], 'reads':[], 'reads_ratio':[1], 'target':[0], 'coverage':[0], 'cov_ratio':[0]}
+            #result['Unclassified'] = {'total_reads':0, 'total_ratio':0, 'total_cov':0, 'ref':['Unclassified'], 'type':['Unclassified'], 'reads':[], 'reads_ratio':[1], 'target':[0], 'coverage':[0], 'cov_ratio':[0]}
         except:
             continue
     bedfile.close()
@@ -65,7 +66,7 @@ def FilterBam(inbam, outbam, target, cov=0.5, mapq=50):
     for record in samfile:
         # keep unmapped reads
         if record.is_unmapped:
-            outfile.write(record)
+            #outfile.write(record)
             continue
         # ignore qcfail, duplicate
         if record.is_qcfail or record.is_duplicate:
@@ -79,7 +80,7 @@ def FilterBam(inbam, outbam, target, cov=0.5, mapq=50):
         if record.is_secondary or SA:
             continue
         # ignore mapping_quality fail
-        if record.mapping_quality <= mapq:
+        if record.mapping_quality < mapq:
             continue
         # calculate overlap ratio and write record
         for pos in target[record.reference_name]:
@@ -136,7 +137,7 @@ def BamReadsCoverage(outbam, target, relation, result, depth=100):
         result[species]['cov_ratio'].append(round(len(coverage)/length*100,2))
     
     # also record unmapped reads
-    result['Unclassified']['reads'].append(outfile.unmapped)
+    #result['Unclassified']['reads'].append(outfile.unmapped)
     outfile.close()
     
     # total reads
@@ -171,14 +172,19 @@ def WriteOutSummary(outfile, result, total_reads, depth):
             # e.g. Lee-seg4(NC_002207.1,0,0%,0.0%);Lee-seg6(NC_002209.1,0,0%,0.0%);Lee-seg7(NC_002210.1,0,0%,0.0%)
             info[species].append(result[species]['type'][i]+"("+result[species]['ref'][i]+","+str(result[species]['reads'][i])+","+str(result[species]['reads_ratio'][i])+"%,"+str(result[species]['cov_ratio'][i])+"%)")
         # positive decision, reads_ratio > 10 and cov_depth > 90
-        if result[species] == "Unclassified": # modified 20200921
-            decide = "No"
-        elif result[species]['total_ratio'] >= 10 and result[species]['total_cov'] >= 90:
+        #if result[species] == "Unclassified": # modified 20200921
+            #decide = "No"
+        #el
+        if (result[species]['total_ratio'] >= 10 or result[species]['total_reads'] >= 1000) and (result[species]['total_cov'] >= 30): # modified 20201118
             decide = "Yes"
-        elif result[species]['total_ratio'] <= 1 and result[species]['total_cov'] <= 80: # modified 20200921
-            decide = "No"
+        elif (result[species]['total_ratio'] >= 1 or result[species]['total_reads'] >= 100) and (result[species]['total_cov'] >= 10): # modified 20201118
+            decide = "Suspected"
+        elif result[species]['total_cov'] <= 10: # modified 20201118
+            decide = "No" # modified 20201118
+        elif result[species]['total_ratio'] <= 1 and result[species]['total_reads'] <= 100: # modified 20201118
+            decide = "No" # modified 20201118
         else:
-            decide = "Suspected" # modified 20200921
+            decide = "Warning" # modified 20200921
         # write out species stats
         out.write(species+"\t"+str(result[species]['total_reads'])+"\t"+str(result[species]['total_ratio'])+"%\t"+str(result[species]['total_cov'])+"%\t"+decide+"\t")
         # subspecies info
