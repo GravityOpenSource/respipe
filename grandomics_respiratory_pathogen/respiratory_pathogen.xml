@@ -10,7 +10,7 @@
         #end if
         > $script 2>&1 &&
         
-        grep "Yes\|No\|Suspected\|Warning" *tsv|cut -f1-5|sed 's/:/\t/g'|sed 's/\.filter\.summary\.tsv//g' > $all_summary
+        grep "Yes\|No\|Suspected\|Warning" *tsv|cut -f1-5|sed 's/:/\t/g'|sed 's/\.filter\.summary\.tsv//g'|awk 'BEGIN{print "Sample\tSpecies\tTotal reads\tReads ratio\t    Coverage\tPositive"}{print $0}' > $all_summary
                 
         ]]>
     </command>
