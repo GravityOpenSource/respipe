@@ -194,6 +194,9 @@ def WriteOutSummary(outfile, result, total_reads, depth):
         # Influenza B virus	0	0.0%	0.0%	no	Lee-seg4(NC_002207.1,0,0%,0.0%);Lee-seg6(NC_002209.1,0,0%,0.0%);Lee-seg7(NC_002210.1,0,0%,0.0%)
     # finally write out Total reads info
     out.write("Total reads\t"+str(total_reads)+"\t100%\t-\t-\t-\n")
+    if total_reads < 1000:
+        out.write("Attention: Reads of this sample is not enough, the cutoff is 1000, now you only have "+str(total_reads)+".\n")
+        out.write("Attention: The positive results are not warranted, re-sequencing of this sample is recommanded.\n")
     out.close()
 
 
